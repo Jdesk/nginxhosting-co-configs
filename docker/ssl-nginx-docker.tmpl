@@ -1,0 +1,37 @@
+# Create proxy container for www.example.com
+#
+# docker build -t proxy .
+
+FROM nginx
+
+MAINTAINER James Barlow <james@jurisdesk.com>
+
+# Set timezone
+RUN echo "America/Toronto" > /etc/timezone \  
+ && dpkg-reconfigure -f noninteractive tzdata
+
+# Install wget and install/updates certificates
+RUN apt-get update \  
+ && apt-get install -y -q --no-install-recommends \
+    ca-certificates \
+    wget \
+ && apt-get clean \
+ && rm -r /var/lib/apt/lists/*
+
+# Add main NGINX config
+COPY nginx.conf /etc/nginx/
+
+# Add DH params (generated with openssl dhparam -out dhparams.pem 2048)
+COPY ssl/dhparams.pem /etc/ssl/private/
+
+# Add www certificates
+COPY ssl/root-ca.pem /etc/ssl/certs/  
+COPY ssl/intermediate-chain-www-example-com.pem /etc/ssl/certs/  
+COPY ssl/your-cert-www-example-com.crt /etc/ssl/private/  
+COPY ssl/your-key-www-example-com.key /etc/ssl/private/
+
+# Add virtual hosts
+COPY vhosts/ /etc/nginx/conf.d/
+
+# Add static content
+COPY html/ /usr/share/nginx/html/
